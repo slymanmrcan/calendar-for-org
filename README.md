@@ -107,53 +107,62 @@ Seed sırasında `.env` içindeki `ADMIN_EMAIL` / `ADMIN_PASSWORD` kullanılır;
 - `/api/events` ve `/api/auth` uçları için IP bazlı rate limit (dakikada 60 istek) uygulanır; bellek içi sayaç tek instance senaryosu için uygundur.
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD` zorunlu; default admin yok. Seed sırasında set edilmezse hata alınır.
 
-## Docker ile Çalıştırma (örnek)
+## Docker ile Çalıştırma
 
-`.env` dosyanızı `env.sample`'dan kopyalayıp doldurun. Build aşamasında `DATABASE_URL` için default `postgresql://postgres:postgres@localhost:5432/calendar_db` kullanılır, bu yüzden image üretirken env olmasa da build patlamaz. Diğer env'ler (NEXTAUTH_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD vb.) env'den gelmek zorunda; DB dışındaki yapıları hardcode etmedik.
+Bu proje Docker ile çalıştırılmak üzere optimize edilmiştir. `.env` dosyasını image içine gömmeden, güvenli bir şekilde çalıştırabilirsiniz.
+
+### 1. Docker Image Oluşturma (Build)
 
 ```bash
-# build (env olmasa da default DB URL ile generate/build çalışır)
 docker build -t calendar-app .
-
-# seed (migrate deploy container start'ta otomatik çalışır; seed'i manuel tetikleyin)
-docker run --rm --env-file .env calendar-app npx prisma db seed
-
-# run (container start'ta entrypoint otomatik `prisma migrate deploy` çalıştırır; boş DB ise tabloları kurar)
-# mutlaka env verin; aksi halde container içindeki default DB localhost'a bakar
-docker run -p 3000:3000 --env-file .env calendar-app
-# Eğer Postgres aynı docker ağına bağlı farklı bir container'daysa `DATABASE_URL`'da host olarak o container'ın adı veya `host.docker.internal` kullanın (örn: `postgresql://postgres:postgres@host.docker.internal:5432/calendar_db`). Aynı bridge ağına koymak için:
-#   docker network create calendar-net
-#   docker network connect calendar-net pg
-#   docker run --network calendar-net -p 3000:3000 --env-file .env calendar-app
-# header metinlerini override etmek için (örnek):
-# docker run -p 3000:3000 --env-file .env -e NEXT_PUBLIC_HEADER_TITLE="Topluluk Takvimi" calendar-app
 ```
 
-GHCR gibi registry'den alırken tek fark image adı (örn. `ghcr.io/kullanici/calendar-app:latest`); `--env-file` ile aynı değişkenleri geçirmeniz yeterli.
+> **Önemli Not:** `NEXT_PUBLIC_` ile başlayan ortam değişkenleri (Header başlıkları vb.) build aşamasında kodun içine gömülür. Eğer bu değerleri değiştirmek istiyorsanız, `.env` dosyanızı düzenleyip image'ı **tekrar build etmeniz** gerekir. `docker run` sırasında verilen `NEXT_PUBLIC_` değişkenleri client tarafında etkili olmaz.
+
+### 2. Container'ı Başlatma (Run)
+
+`.env` dosyanızdaki veritabanı ve diğer ayarlar ile container'ı başlatın:
+
+```bash
+docker run -d -p 3000:3000 --env-file .env --name my-calendar calendar-app
+```
+
+### 3. Veritabanı Kurulumu (Migration)
+
+Container ilk kez çalıştırıldığında veritabanı tabloları henüz oluşmamış olabilir. Tabloları oluşturmak için şu komutu çalıştırın:
+
+```bash
+docker exec -it my-calendar ./scripts/migrate.sh
+```
+
+### 4. Başlangıç Verilerini Yükleme (Seed)
+
+Admin kullanıcısını ve kayıt kodunu oluşturmak için seed işlemini çalıştırın:
+
+```bash
+docker exec -it my-calendar ./scripts/seed.sh
+```
+
+Artık uygulamanız [http://localhost:3000](http://localhost:3000) adresinde kullanıma hazırdır.
 
 ## Docker Compose ile Çalıştırma
-1. `.env.sample`'ı `.env` olarak kopyalayın ve değerleri girin. `DATABASE_URL`'ı `postgres://postgres:postgres@db:5432/calendar_db` yapın (compose ağı için).
-2. Uygulamayı başlatın:
-   ```bash
-   docker compose up --build
-   ```
-   İlk çalıştırmada Postgres için `db_data` volume oluşur; app image'ı build edilir.
-3. Prod seed (migrate deploy container start'ta otomatik çalışır; seed'i manuel tetikleyin):
-   ```bash
-   docker compose run --rm app npx prisma db seed
-   ```
 
-Notlar:
-- `NEXTAUTH_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` zorunlu; set edilmezse uygulama hata verir.
-- `REGISTER_CODE` zorunlu; seed sırasında `RegistrationCode` tablosuna eklenir ve kayıt formu bu kodu ister.
-- `DATABASE_URL` set edilmezse build/generate/seed sırasında default `postgresql://postgres:postgres@localhost:5432/calendar_db` adresi kullanılır. Prod için gerçek DB bilgilerinizi `.env` veya `-e` ile verin; DB dışında hiçbir env hardcode edilmez.
-- Container içinde `localhost` DB host'u çalışmaz; `host.docker.internal` veya aynı docker ağına alınmış bir servis adı (örn. `pg`) kullanın. `entrypoint.sh` `localhost` görürse otomatik `host.docker.internal`'a çevirir.
-- `NEXT_PUBLIC_HEADER_*` set edilmezse header default metinlerle gelir; değişiklik sonrası yeniden build gerekir (public env build-time).
-- Prisma CLI Prisma 6 ile çalışır; `prisma.config.js` içindeki `DATABASE_URL` kullanılır. Container start esnasında entrypoint `prisma migrate deploy` çalıştırır; seed için komutları elle verin.
+1. `.env.sample` dosyasını `.env` olarak kopyalayın ve gerekli alanları doldurun.
+2. Uygulamayı ve veritabanını başlatın:
+   ```bash
+   docker compose up -d --build
+   ```
+3. Migration ve Seed işlemlerini yapın (Sadece ilk kurulumda):
+   ```bash
+   # Container ismini bulmak için: docker ps
+   docker exec -it callendar-full-app-1 ./scripts/migrate.sh
+   docker exec -it callendar-full-app-1 ./scripts/seed.sh
+   ```
 
 ## Header Metinlerini Özelleştirme
-- `.env` veya `docker run -e` ile `NEXT_PUBLIC_HEADER_BADGE`, `NEXT_PUBLIC_HEADER_TITLE`, `NEXT_PUBLIC_HEADER_SUBTITLE` değerlerini set edebilirsiniz.
-- Bu değerler build-time alındığı için değişiklik sonrası `next build`/docker image rebuild gerekir.
+- `NEXT_PUBLIC_HEADER_BADGE`, `NEXT_PUBLIC_HEADER_TITLE`, `NEXT_PUBLIC_HEADER_SUBTITLE` değerleri **build-time** (derleme zamanı) kullanılır.
+- Bu değerleri değiştirdiğinizde Docker image'ını yeniden build etmeniz (`docker build ...`) gerekir.
+- `docker run -e ...` ile verilen değerler client tarafına yansımaz.
 
 ## Kullanım
 

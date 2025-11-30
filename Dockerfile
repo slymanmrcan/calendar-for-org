@@ -1,43 +1,58 @@
+# -----------------------------
+# Base image
+# -----------------------------
 FROM node:20-slim AS base
 RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
+# -----------------------------
+# Dependencies
+# -----------------------------
 FROM base AS deps
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# -----------------------------
+# Build
+# -----------------------------
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Ortam değişkeni (override edilebilir); Prisma generate için build-time'da da set ediliyor
-ARG DATABASE_URL=postgresql://postgres:postgres@localhost:5432/calendar_db
+# Dummy DATABASE_URL (Prisma generate için)
+ARG DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dummy"
 ENV DATABASE_URL=${DATABASE_URL}
 
-# Prisma Client üret
 RUN npx prisma generate
-
-# Next build
 RUN npm run build
 
+# -----------------------------
+# Runner (Production)
+# -----------------------------
 FROM base AS runner
 ENV NODE_ENV=production
 ENV PRISMA_CONFIG_PATH=/app/prisma.config.js
 
-# output standalone + public assets
+# Next standalone output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json /app/package-lock.json ./
+
+# Prisma schema + config
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.js ./prisma.config.js
+COPY --from=builder /app/package.json ./package.json
 
-# Node modules tamamını kopyala (Prisma CLI bağımlılıkları dahil)
-COPY --from=builder /app/node_modules ./node_modules
+# Migration + Seed scriptleri
+COPY --from=builder /app/scripts ./scripts
 
+# Prisma runtime engine
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+
+# Entrypoint
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
-RUN chmod +x entrypoint.sh
+RUN chmod +x entrypoint.sh && chmod +x ./scripts/*.sh
 
 EXPOSE 3000
+
 ENTRYPOINT ["./entrypoint.sh"]
-CMD ["node", "server.js"]
