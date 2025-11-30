@@ -148,16 +148,43 @@ Artık uygulamanız [http://localhost:3000](http://localhost:3000) adresinde kul
 ## Docker Compose ile Çalıştırma
 
 1. `.env.sample` dosyasını `.env` olarak kopyalayın ve gerekli alanları doldurun.
+   > **Önemli:** `DATABASE_URL` değerini Docker Compose ağına uygun olarak ayarlayın:
+   > `DATABASE_URL=postgresql://postgres:postgres@db:5432/calendar_db`
+
 2. Uygulamayı ve veritabanını başlatın:
    ```bash
    docker compose up -d --build
    ```
+
 3. Migration ve Seed işlemlerini yapın (Sadece ilk kurulumda):
    ```bash
    # Container ismini bulmak için: docker ps
+   # Genellikle projeadi-app-1 formatındadır
    docker exec -it callendar-full-app-1 ./scripts/migrate.sh
    docker exec -it callendar-full-app-1 ./scripts/seed.sh
    ```
+
+## Sunucu Kurulumu (Örnek)
+
+Sunucuda (Ubuntu vb.) çalıştırırken `.env` dosyanızda `AUTH_TRUST_HOST=true` ayarını eklemeyi unutmayın.
+
+```bash
+# 1. Image'ı build edin veya registry'den çekin
+docker build -t calendar-app .
+
+# 2. Container'ı başlatın (Host network erişimi ile)
+docker run -d \
+  -p 80:3000 \
+  --env-file .env \
+  --restart always \
+  --add-host=host.docker.internal:host-gateway \
+  --name takvim-app \
+  calendar-app:latest
+
+# 3. Veritabanı kurulumu
+docker exec -it takvim-app ./scripts/migrate.sh
+docker exec -it takvim-app ./scripts/seed.sh
+```
 
 ## Header Metinlerini Özelleştirme
 - `NEXT_PUBLIC_HEADER_BADGE`, `NEXT_PUBLIC_HEADER_TITLE`, `NEXT_PUBLIC_HEADER_SUBTITLE` değerleri **build-time** (derleme zamanı) kullanılır.
