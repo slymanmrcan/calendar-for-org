@@ -23,6 +23,8 @@ services:
     environment:
       # Override DB host for the app container network
       DATABASE_URL: postgres://postgres:postgres@db:5432/calendar_db
+    volumes:
+      - ./public/uploads:/app/public/uploads
     ports:
       - "3000:3000"
     # default CMD from Dockerfile: node server.js

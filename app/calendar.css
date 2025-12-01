@@ -1,18 +1,177 @@
-/* Elevated Calendar Styling - Bilgisayar Kavramları Topluluğu teması */
+/* FullCalendar Overrides */
 
-/* Calendar Container */
-.rbc-calendar {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: linear-gradient(145deg, rgba(32, 46, 68, 0.88), rgba(45, 55, 72, 0.88));
-    border-radius: 18px;
-    padding: 10px;
-    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.35);
-    height: auto;
-    min-height: clamp(520px, 72vh, 900px);
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    backdrop-filter: blur(12px);
-    overflow: visible;
+:root {
+  --fc-border-color: var(--border);
+  --fc-daygrid-event-dot-width: 5px;
+  --fc-list-event-dot-width: 10px;
+  --fc-list-event-hover-bg-color: var(--accent);
+  --fc-neutral-bg-color: var(--secondary);
+  --fc-page-bg-color: var(--card);
+  --fc-button-text-color: var(--primary-foreground);
+  --fc-button-bg-color: var(--primary);
+  --fc-button-border-color: var(--primary);
+  --fc-button-hover-bg-color: var(--primary);
+  --fc-button-hover-border-color: var(--primary);
+  --fc-button-active-bg-color: var(--primary);
+  --fc-button-active-border-color: var(--primary);
+  --fc-event-bg-color: var(--primary);
+  --fc-event-border-color: var(--primary);
+  --fc-event-text-color: #fff;
+  --fc-today-bg-color: var(--accent);
 }
+
+.fc {
+  font-family: var(--font-sans);
+  color: var(--foreground);
+}
+
+.fc-theme-standard .fc-scrollgrid {
+  border-color: var(--border);
+}
+
+.fc-theme-standard td, 
+.fc-theme-standard th {
+  border-color: var(--border);
+}
+
+/* Toolbar */
+.fc-toolbar-title {
+  font-size: 1.5rem !important;
+  font-weight: 700;
+}
+
+.fc-button {
+  font-weight: 500;
+  text-transform: capitalize;
+  border-radius: var(--radius-md) !important;
+  padding: 0.5rem 1rem !important;
+  transition: all 0.2s;
+}
+
+.fc-button:focus {
+  box-shadow: none !important;
+}
+
+.fc-button-primary:not(:disabled).fc-button-active, 
+.fc-button-primary:not(:disabled):active {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  filter: brightness(0.9);
+}
+
+/* Events */
+.fc-event {
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.fc-event:hover {
+  transform: scale(1.01);
+  filter: brightness(1.05);
+}
+
+.fc-daygrid-event {
+  white-space: normal;
+  align-items: start;
+}
+
+/* Day Cells */
+.fc-daygrid-day-number {
+  color: var(--foreground);
+  font-weight: 500;
+  padding: 8px !important;
+}
+
+.fc-col-header-cell-cushion {
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 12px 0 !important;
+}
+
+/* Today */
+.fc-day-today {
+  background-color: var(--secondary) !important;
+}
+
+.dark .fc-day-today {
+  background-color: color-mix(in srgb, var(--primary) 15%, transparent) !important;
+}
+
+/* Events Spacing & Look */
+.fc-daygrid-event-harness {
+  margin-bottom: 6px !important; /* Etkinlikler arası boşluk arttırıldı */
+}
+
+.fc-event {
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dark .fc-event {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4); /* Karanlık modda derinlik */
+  border: 1px solid rgba(255,255,255,0.15); /* Belirgin çerçeve */
+}
+
+/* Grid Improvements (Light & Dark) */
+.fc-daygrid-day-frame {
+  background-color: rgba(0,0,0,0.02); /* Light mode background */
+  margin: 1px;
+  border-radius: 4px;
+}
+
+.fc-col-header-cell {
+  background-color: rgba(0,0,0,0.03); /* Light mode header background */
+}
+
+.dark .fc-daygrid-day-frame {
+  background-color: rgba(255,255,255,0.02); /* Dark mode background */
+}
+
+.dark .fc-col-header-cell {
+  background-color: rgba(255,255,255,0.05); /* Dark mode header background */
+}
+
+.dark .fc-scrollgrid {
+  border-color: rgba(255,255,255,0.1) !important;
+}
+
+.dark .fc-theme-standard td, 
+.dark .fc-theme-standard th {
+  border-color: rgba(255,255,255,0.1) !important;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .fc-header-toolbar {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .fc-toolbar-title {
+    font-size: 1.25rem !important;
+  }
+
+  .fc-button {
+    padding: 0.4rem 0.8rem !important;
+    font-size: 0.875rem !important;
+  }
+  
+  /* Mobilde gün isimlerini kısalt veya küçült */
+  .fc-col-header-cell-cushion {
+    font-size: 0.7rem;
+  }
+}
+
+
+
 
 /* Toolbar - Header with Navigation */
 .rbc-toolbar {

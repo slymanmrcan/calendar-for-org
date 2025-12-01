@@ -1,15 +1,12 @@
 "use client"
 
-import { Calendar as BigCalendar, momentLocalizer, View } from 'react-big-calendar'
-import moment from 'moment'
-import 'moment/locale/tr'
-import 'react-big-calendar/lib/css/react-big-calendar.css'
+import FullCalendar from '@fullcalendar/react'
+import dayGridPlugin from '@fullcalendar/daygrid'
+import timeGridPlugin from '@fullcalendar/timegrid'
+import interactionPlugin from '@fullcalendar/interaction'
+import trLocale from '@fullcalendar/core/locales/tr'
+import { useState, useEffect } from 'react'
 import '@/app/calendar.css'
-import { useState, useCallback } from 'react'
-
-moment.locale('tr')
-
-const localizer = momentLocalizer(moment)
 
 interface Event {
     id: string
@@ -19,6 +16,7 @@ interface Event {
     speaker?: string | null
     location?: string | null
     platform?: string | null
+    url?: string | null
     isOnline?: boolean
     start: Date
     end: Date
@@ -28,60 +26,32 @@ interface CalendarProps {
     events: Event[]
     onSelectEvent: (event: Event) => void
     onSelectSlot: (slotInfo: { start: Date; end: Date }) => void
+    onDatesSet?: (arg: { start: Date; end: Date }) => void
     isAdmin: boolean
 }
 
-export default function Calendar({ events, onSelectEvent, onSelectSlot, isAdmin }: CalendarProps) {
-    const [view, setView] = useState<View>('month')
-    const [date, setDate] = useState(new Date())
-
-    const formatTime = (date: Date) =>
-        new Intl.DateTimeFormat('tr-TR', {
-            hour: '2-digit',
-            minute: '2-digit',
-        }).format(date)
-
-    const CalendarEvent = ({ event }: { event: Event }) => {
-        const startTime = formatTime(event.start)
-        const endTime = formatTime(event.end)
-        const desc = event.description ? ` · ${event.description}` : ''
-        const venue = event.isOnline
-            ? event.platform
-            : event.location
-
-        return (
-            <div
-                className="flex w-full max-w-full flex-col gap-0.5 box-border overflow-hidden text-ellipsis whitespace-nowrap"
-                title={`${event.title} (${startTime} - ${endTime})${venue ? ` • ${venue}` : ''}`}
-            >
-                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide opacity-90">
-                    <span className="rounded-sm bg-white/20 px-1 py-0.5 leading-none">
-                        {startTime} - {endTime}
-                    </span>
-                </div>
-                <div className="text-[12px] font-semibold leading-tight line-clamp-2">
-                    {event.title}
-                </div>
-                {venue && (
-                    <div className="text-[11px] font-medium text-slate-100/90 line-clamp-1">
-                        {event.isOnline ? `Online · ${venue}` : `Konum · ${venue}`}
-                    </div>
-                )}
-            </div>
-        )
-    }
-
-    const handleSelectSlot = useCallback(
-        (slotInfo: { start: Date; end: Date }) => {
-            if (isAdmin) {
-                onSelectSlot(slotInfo)
-            }
+export default function Calendar({ events, onSelectEvent, onSelectSlot, onDatesSet, isAdmin }: CalendarProps) {
+    // FullCalendar için event formatını dönüştür
+    const calendarEvents = events.map(event => ({
+        id: event.id,
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        extendedProps: {
+            description: event.description,
+            imageUrl: event.imageUrl,
+            speaker: event.speaker,
+            location: event.location,
+            platform: event.platform,
+            url: event.url,
+            isOnline: event.isOnline
         },
-        [isAdmin, onSelectSlot]
-    )
+        // Renk ataması (ID'ye göre)
+        backgroundColor: getColorForEvent(event.id),
+        borderColor: 'transparent'
+    }))
 
-    const eventStyleGetter = useCallback((event: Event) => {
-        // Soft, harmonious color palette
+    function getColorForEvent(id: string) {
         const colors = [
             '#0ea5e9', // Sky
             '#22c55e', // Green
@@ -90,60 +60,80 @@ export default function Calendar({ events, onSelectEvent, onSelectSlot, isAdmin 
             '#f97316', // Orange
             '#14b8a6', // Teal
         ]
+        const index = id ? parseInt(id.slice(-1), 36) % colors.length : 0
+        return colors[index]
+    }
 
-        // Use event id to consistently assign colors
-        const colorIndex = event.id ? parseInt(event.id.slice(-1), 36) % colors.length : 0
+    const renderEventContent = (eventInfo: any) => {
+        const { event } = eventInfo
+        const props = event.extendedProps
+        const startTime = event.start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+        const endTime = event.end?.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+        
+        const venue = props.isOnline ? props.platform : props.location
 
-        return {
-            style: {
-                background: colors[colorIndex],
-                borderRadius: '6px',
-                color: 'white',
-                border: 'none',
-                display: 'block',
-                padding: '2px 6px',
-                fontSize: '13px',
-            },
-        }
-    }, [])
-
-    const messages = {
-        allDay: 'Tüm gün',
-        previous: 'Önceki',
-        next: 'Sonraki',
-        today: 'Bugün',
-        month: 'Ay',
-        week: 'Hafta',
-        day: 'Gün',
-        agenda: 'Ajanda',
-        date: 'Tarih',
-        time: 'Saat',
-        event: 'Etkinlik',
-        noEventsInRange: 'Bu aralıkta etkinlik yok.',
-        showMore: (total: number) => `+ ${total} daha fazla`
+        return (
+            <div className="flex flex-col gap-0.5 overflow-hidden w-full h-full px-1 py-0.5">
+                <div className="flex items-center gap-1 text-[10px] font-bold opacity-90">
+                    <span>{startTime}</span>
+                    {endTime && <span>- {endTime}</span>}
+                </div>
+                <div className="font-semibold text-xs truncate leading-tight">
+                    {event.title}
+                </div>
+                {venue && (
+                    <div className="text-[10px] opacity-80 truncate">
+                        {props.isOnline ? '🌐 ' : '📍 '}{venue}
+                    </div>
+                )}
+            </div>
+        )
     }
 
     return (
-        <div className="w-full max-w-full rounded-2xl border border-white/10 bg-slate-900/60 p-3 shadow-2xl backdrop-blur sm:p-5 min-h-[60vh] sm:min-h-[70vh] overflow-auto">
-            <BigCalendar
-                localizer={localizer}
-                events={events}
-                startAccessor="start"
-                endAccessor="end"
-                onSelectEvent={onSelectEvent}
-                onSelectSlot={handleSelectSlot}
+        <div className="w-full h-full rounded-2xl border border-border bg-card text-card-foreground p-4 shadow-xl backdrop-blur overflow-hidden">
+            <FullCalendar
+                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                headerToolbar={{
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                }}
+                locale={trLocale}
+                events={calendarEvents}
                 selectable={isAdmin}
-                view={view}
-                onView={setView}
-                date={date}
-                onNavigate={setDate}
-                eventPropGetter={eventStyleGetter}
-                messages={messages}
-                popup
-                components={{ event: CalendarEvent }}
-                style={{ height: "calc(100vh - 180px)", minHeight: "60vh", maxHeight: "90vh" }}
-                step={30}
-                timeslots={2}
+                selectMirror={true}
+                dayMaxEvents={true}
+                weekends={true}
+                datesSet={(arg) => {
+                    if (onDatesSet) {
+                        onDatesSet({ start: arg.start, end: arg.end })
+                    }
+                }}
+                select={(info) => {
+                    onSelectSlot({ start: info.start, end: info.end })
+                }}
+                eventClick={(info) => {
+                    const e = info.event
+                    onSelectEvent({
+                        id: e.id,
+                        title: e.title,
+                        start: e.start!,
+                        end: e.end!,
+                        description: e.extendedProps.description,
+                        imageUrl: e.extendedProps.imageUrl,
+                        speaker: e.extendedProps.speaker,
+                        location: e.extendedProps.location,
+                        platform: e.extendedProps.platform,
+                        url: e.extendedProps.url,
+                        isOnline: e.extendedProps.isOnline
+                    })
+                }}
+                eventContent={renderEventContent}
+                height="auto"
+                contentHeight="auto"
+                aspectRatio={1.8}
             />
         </div>
     )

@@ -16,6 +16,7 @@ interface Event {
   speaker?: string | null
   location?: string | null
   platform?: string | null
+  url?: string | null
   isOnline?: boolean
 }
 
@@ -27,6 +28,7 @@ interface CalendarEvent {
   speaker?: string | null
   location?: string | null
   platform?: string | null
+  url?: string | null
   isOnline?: boolean
   start: Date
   end: Date
@@ -40,9 +42,18 @@ export default function HomePage() {
   const [modalMode, setModalMode] = useState<'view' | 'create' | 'edit'>('view')
   const [newEventSlot, setNewEventSlot] = useState<{ start: Date; end: Date } | null>(null)
 
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = useCallback(async (start?: Date, end?: Date) => {
     try {
-      const response = await fetch('/api/events')
+      let url = '/api/events'
+      if (start && end) {
+        const params = new URLSearchParams({
+          start: start.toISOString(),
+          end: end.toISOString(),
+        })
+        url += `?${params.toString()}`
+      }
+
+      const response = await fetch(url)
       const data: Event[] = await response.json()
       const calendarEvents = data.map(event => ({
         id: event.id,
@@ -52,6 +63,7 @@ export default function HomePage() {
         speaker: event.speaker,
         location: event.location,
         platform: event.platform,
+        url: event.url,
         isOnline: event.isOnline,
         start: new Date(event.startDate),
         end: new Date(event.endDate),
@@ -62,10 +74,8 @@ export default function HomePage() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchEvents()
-  }, [fetchEvents])
-
+  // Initial fetch is handled by Calendar's onDatesSet
+  
   const handleSelectEvent = (event: CalendarEvent) => {
     setSelectedEvent(event)
     setModalMode('view')
@@ -107,6 +117,7 @@ export default function HomePage() {
     speaker?: string | null
     location?: string | null
     platform?: string | null
+    url?: string | null
     isOnline?: boolean
   }) => {
     try {
@@ -115,6 +126,7 @@ export default function HomePage() {
       const speaker = event.speaker?.toString().trim() || null
       const location = event.location?.toString().trim() || null
       const platform = event.platform?.toString().trim() || null
+      const url = event.url?.toString().trim() || null
       const isOnline = Boolean(event.isOnline)
 
       if (event.id) {
@@ -129,12 +141,17 @@ export default function HomePage() {
             speaker,
             location,
             platform,
+            url,
             isOnline,
             startDate: event.startDate.toISOString(),
             endDate: event.endDate.toISOString(),
           }),
         })
-        if (!response.ok) throw new Error('Failed to update event')
+        
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Etkinlik güncellenemedi')
+        }
       } else {
         // Create new event
         const response = await fetch('/api/events', {
@@ -147,17 +164,23 @@ export default function HomePage() {
             speaker,
             location,
             platform,
+            url,
             isOnline,
             startDate: event.startDate.toISOString(),
             endDate: event.endDate.toISOString(),
           }),
         })
-        if (!response.ok) throw new Error('Failed to create event')
+        
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Etkinlik oluşturulamadı')
+        }
       }
       await fetchEvents()
       setModalOpen(false)
     } catch (error) {
       console.error('Error saving event:', error)
+      throw error // Hatayı yukarı fırlat ki Modal yakalayabilsin
     }
   }
 
@@ -183,7 +206,8 @@ export default function HomePage() {
           events={events}
           onSelectEvent={handleSelectEvent}
           onSelectSlot={handleSelectSlot}
-          isAdmin={!!session}
+          onDatesSet={({ start, end }) => fetchEvents(start, end)}
+          isAdmin={!!session?.user}
         />
       </main>
 
@@ -198,6 +222,7 @@ export default function HomePage() {
           speaker: selectedEvent.speaker,
           location: selectedEvent.location,
           platform: selectedEvent.platform,
+          url: selectedEvent.url,
           isOnline: selectedEvent.isOnline,
           startDate: selectedEvent.start,
           endDate: selectedEvent.end,

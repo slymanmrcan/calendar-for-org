@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "lucide-react"
+import { ThemeToggle } from "@/components/ThemeToggle"
 
 export default function Header() {
     const { data: session } = useSession()
@@ -42,6 +43,7 @@ export default function Header() {
                                 {session.user?.name || session.user?.email}
                             </span>
                         </div>
+                        <ThemeToggle />
                         <Button
                             onClick={() => signOut({ callbackUrl: "/" })}
                             variant="secondary"
@@ -49,6 +51,11 @@ export default function Header() {
                         >
                             Çıkış Yap
                         </Button>
+                    </div>
+                )}
+                {!session && (
+                    <div className="flex items-center gap-3">
+                        <ThemeToggle />
                     </div>
                 )}
             </div>

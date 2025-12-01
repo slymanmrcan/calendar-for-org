@@ -44,6 +44,7 @@ export async function PUT(req: NextRequest, { params }: any) {
                 speaker: body.speaker?.trim(),
                 location: body.location?.trim(),
                 platform: body.platform?.trim(),
+                url: body.url?.trim(),
                 isOnline: Boolean(body.isOnline),
                 startDate: new Date(body.startDate),
                 endDate: new Date(body.endDate),

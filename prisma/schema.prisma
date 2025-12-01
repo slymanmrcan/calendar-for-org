@@ -24,6 +24,7 @@ model Event {
   speaker     String?
   location    String?
   platform    String?
+  url         String?
   isOnline    Boolean  @default(false)
   startDate   DateTime
   endDate     DateTime
